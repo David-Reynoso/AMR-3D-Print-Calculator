@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AMR 3D Print Calculator</title>
+
+<style>
+body {
+    font-family: Arial, sans-serif;
+    background: #f2f4f8;
+    margin: 0;
+    padding: 0;
+}
+
+.container {
+    max-width: 900px;
+    margin: 40px auto;
+    background: white;
+    padding: 30px;
+    border-radius: 12px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+}
+
+h1 {
+    text-align: center;
+}
+
+h2 {
+    margin-top: 30px;
+    border-bottom: 2px solid #eee;
+    padding-bottom: 5px;
+}
+
+.input-group {
+    display: flex;
+    justify-content: space-between;
+    gap: 20px;
+    margin: 10px 0;
+}
+
+.input-group label {
+    flex: 1;
+}
+
+.input-group input {
+    flex: 1;
+    padding: 8px;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+}
+
+.preview {
+    font-size: 14px;
+    color: #555;
+    margin-top: -5px;
+}
+
+button {
+    width: 100%;
+    padding: 12px;
+    margin-top: 20px;
+    background: #007bff;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    cursor: pointer;
+}
+
+button:hover {
+    background: #0056b3;
+}
+
+.secondary-btn {
+    background: #28a745;
+}
+
+.secondary-btn:hover {
+    background: #1e7e34;
+}
+
+.result {
+    margin-top: 30px;
+    padding: 20px;
+    background: #eef6ff;
+    border-radius: 10px;
+    display: none;
+}
+
+.breakdown {
+    margin-top: 20px;
+    background: #f9fbff;
+    padding: 15px;
+    border-radius: 8px;
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+.highlight {
+    font-weight: bold;
+    color: #007bff;
+    font-size: 18px;
+}
+
+@media print {
+    button {
+        display: none;
+    }
+}
+</style>
+</head>
+<body>
+
+<div class="container" id="printArea">
+
+<h1>AMR 3D Printing Calculator</h1>
+
+<h2>Print Inputs</h2>
+
+<div class="input-group">
+    <label>Total Filament Used (grams)</label>
+    <input type="number" id="filamentUsed">
+</div>
+
+<div class="input-group">
+    <label>Print Time (hours)</label>
+    <input type="number" id="printHours">
+</div>
+
+<h2>Material Cost</h2>
+
+<div class="input-group">
+    <label>Filament Spool Cost (₱)</label>
+    <input type="number" id="spoolCost" oninput="updateCostPerGram()">
+</div>
+
+<div class="input-group">
+    <label>Filament Spool Weight (grams)</label>
+    <input type="number" id="spoolWeight" oninput="updateCostPerGram()">
+</div>
+
+<div class="preview">
+    Cost per gram: <span id="costPerGramPreview">₱ 0.00</span>
+</div>
+
+<h2>Electricity</h2>
+
+<div class="input-group">
+    <label>Printer Power Usage (watts)</label>
+    <input type="number" id="powerUsage">
+</div>
+
+<div class="input-group">
+    <label>Electricity Rate (₱ per kWh)</label>
+    <input type="number" id="electricityRate">
+</div>
+
+<h2>Packaging</h2>
+
+<div class="input-group">
+    <label>Packaging Cost (₱)</label>
+    <input type="number" id="packagingCost">
+</div>
+
+<h2>Risk & Profit</h2>
+
+<div class="input-group">
+    <label>Failure Buffer (%)</label>
+    <input type="number" id="failurePercent">
+</div>
+
+<div class="input-group">
+    <label>Profit Margin (%)</label>
+    <input type="number" id="profitPercent">
+</div>
+
+<button onclick="calculate()">Calculate Estimate</button>
+<button class="secondary-btn" onclick="exportPDF()">Export to PDF</button>
+
+<div class="result" id="resultBox">
+    <p>Total Production Cost: <span class="highlight" id="totalCost"></span></p>
+    <p>Suggested Selling Price: <span class="highlight" id="sellingPrice"></span></p>
+
+    <div class="breakdown" id="breakdownBox"></div>
+</div>
+
+</div>
+
+<script>
+
+function updateCostPerGram() {
+    let spoolCost = parseFloat(document.getElementById("spoolCost").value) || 0;
+    let spoolWeight = parseFloat(document.getElementById("spoolWeight").value) || 1;
+
+    let costPerGram = spoolWeight > 0 ? spoolCost / spoolWeight : 0;
+
+    document.getElementById("costPerGramPreview").innerText =
+        "₱ " + costPerGram.toFixed(4);
+}
+
+function calculate() {
+
+    let filamentUsed = parseFloat(document.getElementById("filamentUsed").value) || 0;
+    let printHours = parseFloat(document.getElementById("printHours").value) || 0;
+    let spoolCost = parseFloat(document.getElementById("spoolCost").value) || 0;
+    let spoolWeight = parseFloat(document.getElementById("spoolWeight").value) || 1;
+    let powerUsage = parseFloat(document.getElementById("powerUsage").value) || 0;
+    let electricityRate = parseFloat(document.getElementById("electricityRate").value) || 0;
+    let packagingCost = parseFloat(document.getElementById("packagingCost").value) || 0;
+    let failurePercent = parseFloat(document.getElementById("failurePercent").value) || 0;
+    let profitPercent = parseFloat(document.getElementById("profitPercent").value) || 0;
+
+    let costPerGram = spoolWeight > 0 ? spoolCost / spoolWeight : 0;
+    let materialCost = filamentUsed * costPerGram;
+    let electricityCost = (powerUsage / 1000) * printHours * electricityRate;
+
+    let totalCost = materialCost + electricityCost + packagingCost;
+    let bufferAmount = totalCost * (failurePercent / 100);
+    let bufferCost = totalCost + bufferAmount;
+    let profitAmount = bufferCost * (profitPercent / 100);
+    let sellingPrice = bufferCost + profitAmount;
+
+    document.getElementById("totalCost").innerText = "₱ " + totalCost.toFixed(2);
+    document.getElementById("sellingPrice").innerText = "₱ " + sellingPrice.toFixed(2);
+
+    document.getElementById("breakdownBox").innerHTML = `
+        <strong>Calculation Breakdown:</strong><br><br>
+        Cost per gram = ₱ ${spoolCost} ÷ ${spoolWeight}g = ₱ ${costPerGram.toFixed(4)}<br>
+        Material cost = ${filamentUsed}g × ₱ ${costPerGram.toFixed(4)} = ₱ ${materialCost.toFixed(2)}<br>
+        Electricity cost = (${powerUsage}W ÷ 1000) × ${printHours}h × ₱ ${electricityRate} = ₱ ${electricityCost.toFixed(2)}<br>
+        Packaging cost = ₱ ${packagingCost.toFixed(2)}<br><br>
+        Subtotal = ₱ ${totalCost.toFixed(2)}<br>
+        Failure buffer (${failurePercent}%) = ₱ ${bufferAmount.toFixed(2)}<br>
+        With buffer = ₱ ${bufferCost.toFixed(2)}<br>
+        Profit (${profitPercent}%) = ₱ ${profitAmount.toFixed(2)}<br><br>
+        <strong>Final Selling Price = ₱ ${sellingPrice.toFixed(2)}</strong>
+    `;
+
+    document.getElementById("resultBox").style.display = "block";
+}
+
+function exportPDF() {
+    window.print();
+}
+
+</script>
+
+</body>
+</html>
